@@ -1,12 +1,12 @@
 // Service Worker — Zürich Marató Barcelona 2026
-const CACHE = 'marato-bcn-v1';
+const CACHE = 'marato-bcn-v2';
 
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/marathon-bcn-tracker/',
+  '/marathon-bcn-tracker/index.html',
+  '/marathon-bcn-tracker/manifest.json',
+  '/marathon-bcn-tracker/icon-192.svg',
+  '/marathon-bcn-tracker/icon-512.svg',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap',
@@ -48,7 +48,7 @@ self.addEventListener('fetch', e => {
       }).catch(() => {
         // Offline fallback for navigation
         if (e.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match('/marathon-bcn-tracker/index.html');
         }
       });
     })
