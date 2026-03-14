@@ -138,7 +138,6 @@ input[type=range]::-moz-range-thumb {
 .section-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 0.75rem 1rem; cursor: pointer; user-select: none;
-  
 }
 .section-header { border-bottom: 1px solid var(--border); }
 .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 0.82rem; letter-spacing: 0.15em; color: var(--accent); }
@@ -181,11 +180,20 @@ tbody td:nth-child(2), tbody td:nth-child(3), tbody td:last-child { text-align: 
 .map-legend {
   position: absolute; bottom: 12px; left: 12px; z-index: 1000;
   background: #10101eee; border: 1px solid #1e1e35;
-  border-radius: 10px; padding: 0.6rem 0.9rem;
+  border-radius: 10px;
   font-family: 'DM Mono', monospace; font-size: 0.65rem; color: #6a6a8a;
-  display: flex; flex-direction: column; gap: 0.35rem;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px); min-width: 44px;
 }
+.ml-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; padding: 0.45rem 0.7rem;
+  cursor: pointer; user-select: none;
+}
+.ml-header-label { font-size: 0.65rem; color: #6a6a8a; white-space: nowrap; }
+.ml-toggle { font-size: 0.6rem; color: #4a4a6a; transition: transform 0.25s; line-height: 1; }
+.ml-toggle.open { transform: rotate(180deg); }
+.ml-body { display: none; flex-direction: column; gap: 0.35rem; padding: 0 0.7rem 0.55rem; }
+.ml-body.open { display: flex; }
 .ml-item { display: flex; align-items: center; gap: 0.35rem; }
 .ml-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .ml-line { width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0; }
@@ -232,7 +240,6 @@ tbody td:nth-child(2), tbody td:nth-child(3), tbody td:last-child { text-align: 
     </div>
   </div>
 </div>
-
 
 <!-- PWA Install Banner -->
 <div id="installBanner" style="display:none;background:#1e1b4b;border-bottom:1px solid #4f46e5;
@@ -327,19 +334,23 @@ tbody td:nth-child(2), tbody td:nth-child(3), tbody td:last-child { text-align: 
   <div class="panel-right">
     <div id="map"></div>
     <div class="map-legend">
-      <div class="ml-item"><div class="ml-line" style="background:#6366f1"></div><span data-i18n="gpx_route">Recorrido GPX oficial</span></div>
-      <div class="ml-item"><div class="ml-dot" style="background:#22c55e"></div><span data-i18n="start">Salida</span></div>
-      <div class="ml-item"><div class="ml-dot" style="background:#34d399"></div>Parcial 4'40"</div>
-      <div class="ml-item"><div class="ml-dot" style="background:#fbbf24"></div>Parcial 4'35" / ½</div>
-      <div class="ml-item"><div class="ml-dot" style="background:#fb923c"></div>Parcial 4'30"</div>
-      <div class="ml-item"><div class="ml-dot" style="background:#e879f9"></div>Gel 🍬</div>
-      <div class="ml-item"><div class="ml-dot" style="background:#f43f5e"></div><span data-i18n="finish">Meta</span> 🏁</div>
+      <div class="ml-header" onclick="toggleMapLegend()">
+        <span class="ml-header-label">🗺 <span data-i18n="legend">Leyenda</span></span>
+        <span class="ml-toggle" id="mlToggle">▼</span>
+      </div>
+      <div class="ml-body" id="mlBody">
+        <div class="ml-item"><div class="ml-line" style="background:#6366f1"></div><span data-i18n="gpx_route">Recorrido GPX oficial</span></div>
+        <div class="ml-item"><span style="font-size:0.8rem">🚦</span><span data-i18n="start">Salida</span></div>
+        <div class="ml-item"><span style="font-size:0.8rem">📍</span><span data-i18n="split">Parcial</span></div>
+        <div class="ml-item"><span style="font-size:0.8rem">⭐</span><span data-i18n="half">Media maratón</span></div>
+        <div class="ml-item"><span style="font-size:0.8rem">🍬</span><span data-i18n="gel_lbl">Gel</span></div>
+        <div class="ml-item"><span style="font-size:0.8rem">🏁</span><span data-i18n="finish">Meta</span></div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-
 
 // ── PWA INSTALL BANNER ────────────────────────────────────────────────────────
 let deferredPrompt = null;
@@ -380,15 +391,17 @@ const TRANSLATIONS = {
     th_split:       'PARCIAL',
     th_cum:         'ACUM.',
     gel_lbl:        'Gel',
+    split:          'Parcial',
+    half:           'Media maratón',
     gpx_route:      'Recorrido GPX oficial',
     start:          'Salida',
     finish:         'Meta',
+    legend:         'Leyenda',
+    install_msg:    'Instala la app para usarla sin conexión',
+    install_btn:    'Instalar',
     warning:        '⚠ Controla la primera mitad — ahí está el secreto',
-    // segment notes
     seg_notes:      ['Salida prudente · ¡No te pases!','Inicio progresión controlada','Progresión final · A por ello'],
-    // avg pace string
     avg_pace_lbl:   (avg) => `42.195 km · Ritmo medio ${avg}`,
-    // map popups
     pop_start_title:'SALIDA · KM 0',
     pop_start_time: '0:00:00 · 8:30h',
     pop_start_sub:  'Passeig de Gràcia / Gran Via',
@@ -418,9 +431,12 @@ const TRANSLATIONS = {
     th_split:       'SPLIT',
     th_cum:         'CUM.',
     gel_lbl:        'Gel',
+    split:          'Split',
+    half:           'Half marathon',
     gpx_route:      'Official GPX route',
     start:          'Start',
     finish:         'Finish',
+    legend:         'Legend',
     install_msg:    'Install the app to use it offline',
     install_btn:    'Install',
     warning:        `⚠ Control the first half — that's the secret`,
@@ -455,13 +471,12 @@ function applyTranslations() {
 
 function setLang(lang) {
   currentLang = lang;
-  // Update buttons
   document.getElementById('btnEs').style.background = lang==='es' ? '#6366f1' : 'transparent';
   document.getElementById('btnEs').style.color      = lang==='es' ? '#fff'    : '#4a4a6a';
   document.getElementById('btnEn').style.background = lang==='en' ? '#6366f1' : 'transparent';
   document.getElementById('btnEn').style.color      = lang==='en' ? '#fff'    : '#4a4a6a';
   applyTranslations();
-  render(); // re-render dynamic content with new language
+  render();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -473,12 +488,10 @@ const SEGMENTS = [
   { label:"KM 31 – 42.2", from:30, to:42.195, pace:270, color:"#fb923c", get note(){ return TRANSLATIONS[currentLang].seg_notes[2]; } },
 ];
 const paces = SEGMENTS.map(s => s.pace);
-let gelInterval = 1800; // seconds, default 30 min
+let gelInterval = 1800;
 
-// Real GPX route (official 2026)
 const ROUTE = [[41.388870000000004,2.16922],[41.389520000000005,2.1687000000000003],[41.39033287334603,2.169559956765749],[41.39270431270172,2.172719927914363],[41.39406,2.17443],[41.394420000000004,2.1756900000000003],[41.394830000000006,2.17619],[41.39573,2.1766900000000002],[41.39795601367438,2.179557962313939],[41.40019000720406,2.179720022032651],[41.4018,2.17787],[41.40045216395535,2.1759848983173185],[41.39799642157681,2.1726948814337197],[41.39554058549196,2.1694051131668193],[41.393084655715974,2.166115593485837],[41.39062863226403,2.1628263223599906],[41.38817251515127,2.1595372997585023],[41.38571630439291,2.1562485256505943],[41.38326,2.15296],[41.383595000971546,2.1521100022934347],[41.38525595691845,2.153443638902311],[41.38776779800174,2.156791110676658],[41.39027954206684,2.1601388411046867],[41.39279118909765,2.1634868302192496],[41.39530273907813,2.166835078053206],[41.3978141919922,2.1701835846394135],[41.40032554782376,2.1735323500107344],[41.40283680655674,2.176881374200031],[41.40534796817506,2.180230657240169],[41.407859032662614,2.1835801991640147],[41.41037,2.1869300000000003],[41.412780000000005,2.1901200000000003],[41.41484250673557,2.1928099817974385],[41.41619500285749,2.19247500805611],[41.41769333778628,2.1904033455371312],[41.41962,2.19015],[41.42172333338652,2.191190000604641],[41.422540000000005,2.1900600000000003],[41.422700000000006,2.1871500000000004],[41.420054999978746,2.1870399975555004],[41.41654333332614,2.1869816667778723],[41.413076666630445,2.186988333444586],[41.41134467847491,2.1859144172990423],[41.4088033304709,2.1825322518797874],[41.40626188343345,2.17915035105032],[41.40372033737919,2.175768714776593],[41.40117869232469,2.1723873430245635],[41.39863694828655,2.1690062357601887],[41.39609510528139,2.1656253929494294],[41.39355316332578,2.162244814558248],[41.3910111224363,2.158864500552608],[41.38846898262955,2.1554844508984776],[41.3859267439221,2.152104665561825],[41.38392,2.14943],[41.38155502398201,2.152615063224894],[41.37984,2.15513],[41.381465055297355,2.157669852642098],[41.38380505529359,2.1607898526274782],[41.38598000121777,2.1636799963273097],[41.387750001977366,2.166049994425794],[41.388270000000006,2.1672800000000003],[41.38740000000001,2.16819],[41.386,2.1648],[41.384694999954284,2.16389999939409],[41.38295335731896,2.162157713621874],[41.38044672663003,2.158828728509413],[41.37794,2.1555],[41.37764000000001,2.15559],[41.37765,2.1573],[41.379120009391556,2.1593499749616263],[41.379780003912956,2.161576677346873],[41.37848,2.1630000000000003],[41.37673250730744,2.160732479723489],[41.375890000000005,2.1596300000000004],[41.37505,2.1588100000000003],[41.37503434467726,2.1634142862245955],[41.37502289252065,2.168082857447626],[41.37488602403259,2.171984005529066],[41.37465,2.1753500000000003],[41.374460000000006,2.1764200000000002],[41.375530000000005,2.17743],[41.375980000000006,2.1775100000000003],[41.37633,2.1781],[41.377516668150285,2.1791566597993475],[41.378930000000004,2.1803700000000004],[41.38018500126506,2.181309994171342],[41.38085,2.18203],[41.381310000000006,2.18224],[41.38195500060321,2.1827649970548175],[41.38243000000001,2.1833],[41.383030000000005,2.1838],[41.38548,2.1858400000000002],[41.38630500732846,2.1849500202131114],[41.38808,2.1827300000000003],[41.38930573060476,2.1842028135427816],[41.39168859860415,2.187374213012281],[41.392900000000004,2.18927],[41.39103004113912,2.1917488602701014],[41.38863001914384,2.194933801528151],[41.38777,2.1958],[41.38745,2.19612],[41.387660000000004,2.1966],[41.38853,2.19807],[41.389160000000004,2.19943],[41.39031000000001,2.2002900000000003],[41.391360000000006,2.20201],[41.39237000000001,2.2041000000000004],[41.393440000000005,2.20492],[41.395140000000005,2.20642],[41.396350000000005,2.2080300000000004],[41.39764,2.20868],[41.3986,2.20934],[41.400110000000005,2.21075],[41.401210000000006,2.2124900000000003],[41.402590000000004,2.21444],[41.40446,2.2169000000000003],[41.406240000000004,2.21922],[41.40768500262686,2.2173600069124184],[41.41022500473607,2.2183874817963973],[41.411210000000004,2.21904],[41.41136,2.21885],[41.410408017459126,2.2148339853038213],[41.40933885823331,2.210506887739322],[41.408230520484395,2.2060762036609662],[41.40712201277348,2.2016456707585457],[41.406013335113045,2.197215289044184],[41.40490448751549,2.19278505853],[41.40428,2.19069],[41.40502,2.19377],[41.40576,2.1973100000000003],[41.406832865812376,2.2015862400740946],[41.40790557329563,2.205862621361332],[41.408820000000006,2.20948],[41.409465011467304,2.2123499897663987],[41.409690000000005,2.2135100000000003],[41.40843507709864,2.2118547929372365],[41.40602516520326,2.2086645563130443],[41.40361516519604,2.2054745563331593],[41.40120507709096,2.2022847929686153],[41.400600000000004,2.19966],[41.40148000000001,2.19823],[41.399370000000005,2.19543],[41.39774000115187,2.19323999631904],[41.39609500162447,2.192165004322424],[41.39440500152319,2.194400003926197],[41.392537505308646,2.1969100141174462],[41.390640000000005,2.1994900000000004],[41.388715008544686,2.1969399770459335],[41.388160000000006,2.19578],[41.39020001740171,2.193061475412906],[41.39268002900158,2.1897872209333067],[41.39414,2.18771],[41.394580000000005,2.1868000000000003],[41.39334601720653,2.1849319562684992],[41.391600000000004,2.18228],[41.39383,2.17919],[41.39251401770224,2.1772779520982652],[41.390440000000005,2.17478],[41.39002000000001,2.17536],[41.3911500136978,2.1786149831258537],[41.39146,2.18006],[41.39058,2.18126],[41.39058,2.18126]];
 
-// Cumulative distances along GPX
 const CUM = [0];
 function haversine(a, b) {
   const R=6371000, toRad=x=>x*Math.PI/180;
@@ -563,9 +576,6 @@ function mkPopup(title,time,sub,note,color) {
     ${note?`<div class="popup-note">${note}</div>`:''}`;
 }
 
-
-
-// Static + dynamic marker layers
 const staticLayer  = L.layerGroup().addTo(map);
 const dynamicLayer = L.layerGroup().addTo(map);
 const KM_CHECKPOINTS = [5,10,15,20,21.0975,25,30,35,40];
@@ -584,8 +594,6 @@ function updateMap() {
   dynamicLayer.clearLayers();
   rebuildStaticMarkers();
   const gels = computeGels();
-
-  // Parciales
   KM_CHECKPOINTS.forEach(km => {
     const t_ = timeAtKm(km);
     const {pace,color} = getPaceInfo(km<=20?km:km-0.01);
@@ -600,23 +608,25 @@ function updateMap() {
       .bindPopup(mkPopup(label, fmtTime(t_), `${t('pop_pace')}: ${pm}'${String(ps).padStart(2,'0')}"`, note, color))
       .addTo(dynamicLayer);
   });
-
-  // Geles
   gels.forEach(g => {
     const pt = pointAtDist(g.km*1000);
     L.marker(pt,{icon:makeIcon('🍬','#e879f933',33)})
       .bindPopup(mkPopup(`GEL #${g.n} · KM ${g.km.toFixed(1)}`, fmtTime(g.t), t('pop_gel_sub'), t('pop_gel_note'),'#e879f9'))
       .addTo(dynamicLayer);
   });
-
-  // Update meta popup time
-  const totalTime = timeAtKm(42.195);
-  // (meta marker is static, update topbar instead)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // UI TOGGLES
 // ══════════════════════════════════════════════════════════════════════════════
+// ── MAP LEGEND TOGGLE ─────────────────────────────────────────────────────────
+function toggleMapLegend() {
+  const body = document.getElementById('mlBody');
+  const tog  = document.getElementById('mlToggle');
+  body.classList.toggle('open');
+  tog.classList.toggle('open');
+}
+
 function toggleSection(id) {
   const body = document.getElementById(id + 'Body');
   const tog  = document.getElementById(id + 'Toggle');
@@ -634,11 +644,9 @@ function renderSplits() {
   const gels=computeGels();
   const gelByKm={};
   gels.forEach(g=>{ gelByKm[parseFloat(g.km.toFixed(2))]=g.n; });
-
   const base=[5,10,15,20,21.0975,25,30,35,40,42.195];
   const gelKeys=gels.map(g=>parseFloat(g.km.toFixed(2)));
   const all=[...new Set([...base,...gelKeys])].sort((a,b)=>a-b);
-
   const chips=document.getElementById('gelChips');
   chips.innerHTML='';
   gels.forEach(g=>{
@@ -647,7 +655,6 @@ function renderSplits() {
     c.innerHTML=`GEL #${g.n}<span>km ${g.km.toFixed(1)} · ${fmtTime(g.t)}</span>`;
     chips.appendChild(c);
   });
-
   let cum=0, prev=0;
   all.forEach(km=>{
     let seg=0,cur=prev;
@@ -706,7 +713,6 @@ function render() {
       paces[i]=Number(e.target.value); render();
     });
   });
-
   const total=SEGMENTS.reduce((a,s,i)=>a+(s.to-s.from)*paces[i],0);
   const h1=21.0975*paces[0], h2=total-h1, dif=Math.abs(h2-h1);
   document.getElementById('totalTime').textContent=fmtTime(total);
@@ -715,7 +721,6 @@ function render() {
   document.getElementById('half1').textContent=fmtTime(h1);
   document.getElementById('half2').textContent=fmtTime(h2);
   document.getElementById('diff').textContent=`-${fmtTime(dif)}`;
-
   const bar=document.getElementById('paceBar');
   bar.innerHTML='';
   SEGMENTS.forEach((seg,i)=>{
@@ -726,13 +731,23 @@ function render() {
     b.style.opacity=0.7+i*0.1;
     bar.appendChild(b);
   });
-
   renderSplits();
   updateMap();
   applyTranslations();
 }
 
 render();
+
+// Open legend on desktop, collapsed on mobile — re-evaluate on resize
+function initLegend() {
+  const body = document.getElementById('mlBody');
+  const tog  = document.getElementById('mlToggle');
+  const isDesktop = window.innerWidth >= 701;
+  body.classList.toggle('open', isDesktop);
+  tog.classList.toggle('open',  isDesktop);
+}
+initLegend();
+window.addEventListener('resize', initLegend);
 </script>
 
 <script>
