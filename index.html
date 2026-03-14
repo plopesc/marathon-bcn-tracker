@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zürich Marató Barcelona 2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Marató BCN"/>
+  <meta name="theme-color" content="#080810"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-512.svg"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080810; --card: #10101e; --border: #1e1e35;
+  --text: #e8eaf0; --muted: #4a4a6a;
+  --seg1: #34d399; --seg2: #fbbf24; --seg3: #fb923c;
+  --accent: #6366f1; --gel: #e879f9;
+}
+
+html, body { height: 100%; }
+@media (min-width: 701px) { html, body { overflow: hidden; } }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  display: flex; flex-direction: column;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  background: linear-gradient(135deg, #10101e, #0a0a18);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1.2rem;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; gap: 1rem; flex-wrap: wrap;
+}
+.topbar-left { display: flex; align-items: center; gap: 0.7rem; }
+.topbar h1 { font-family: 'Bebas Neue', sans-serif; font-size: 1.3rem; letter-spacing: 0.1em; }
+.topbar-sub { color: var(--muted); font-size: 0.7rem; font-family: 'DM Mono', monospace; }
+.topbar-time {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem;
+  letter-spacing: 0.08em; color: #a5b4fc;
+  background: #6366f115; border: 1px solid #6366f140;
+  border-radius: 8px; padding: 0.15rem 0.8rem;
+  transition: color 0.3s;
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+  flex: 1; display: flex; overflow: hidden; min-height: 0;
+}
+
+/* ── LEFT PANEL ── */
+.panel-left {
+  width: 400px; min-width: 320px; flex-shrink: 0;
+  overflow-y: auto; padding: 1rem;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 0.8rem;
+  scrollbar-width: thin; scrollbar-color: #1e1e35 transparent;
+}
+.panel-left::-webkit-scrollbar { width: 4px; }
+.panel-left::-webkit-scrollbar-thumb { background: #1e1e35; border-radius: 2px; }
+
+/* ── RIGHT PANEL ── */
+.panel-right { flex: 1; position: relative; }
+#map { width: 100%; height: 100%; }
+
+/* ── SEGMENT CARDS ── */
+.segment {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.2rem;
+  border-left: 4px solid var(--color); transition: box-shadow 0.2s;
+}
+.segment:hover { box-shadow: 0 0 20px color-mix(in srgb, var(--color) 12%, transparent); }
+.seg-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.seg-label { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 0.1em; color: var(--color); }
+.seg-note  { color: var(--muted); font-size: 0.72rem; margin-top: 0.1rem; }
+.seg-time  { text-align: right; }
+.seg-time .time { font-family: 'DM Mono', monospace; font-size: 1.05rem; font-weight: 500; }
+.seg-time .dist { color: var(--muted); font-size: 0.7rem; margin-top: 0.1rem; }
+.pace-row { display: flex; justify-content: space-between; align-items: center; margin-top: 0.8rem; margin-bottom: 0.3rem; }
+.pace-label { color: var(--muted); font-size: 0.73rem; }
+.pace-value { font-family: 'DM Mono', monospace; font-size: 0.85rem; font-weight: 500; color: var(--color); }
+input[type=range] {
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--color); border: 2px solid var(--bg);
+  box-shadow: 0 0 6px var(--color); transition: transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--color); border: 2px solid var(--bg);
+}
+.range-labels { display: flex; justify-content: space-between; color: #2a2a45; font-size: 0.62rem; margin-top: 0.25rem; font-family: 'DM Mono', monospace; }
+
+/* ── RESULT BOX ── */
+.result {
+  background: linear-gradient(135deg, #13133a, #0a0a18);
+  border: 1px solid #2a2a5a; border-radius: 14px;
+  padding: 1.2rem; text-align: center; position: relative; overflow: hidden;
+}
+.result::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at 50% 0%, #6366f118 0%, transparent 60%);
+  pointer-events: none;
+}
+.result-label { font-family: 'Bebas Neue', sans-serif; font-size: 0.75rem; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 0.3rem; }
+.result-time  { font-family: 'Bebas Neue', sans-serif; font-size: 2.8rem; color: var(--text); letter-spacing: 0.06em; line-height: 1; transition: all 0.3s; }
+.result-sub   { color: var(--muted); font-size: 0.72rem; margin-top: 0.3rem; font-family: 'DM Mono', monospace; }
+.splits { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #1a1a30; }
+.split { text-align: center; }
+.split-lbl { color: var(--muted); font-size: 0.62rem; letter-spacing: 0.08em; margin-bottom: 0.2rem; font-family: 'DM Mono', monospace; }
+.split-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem; letter-spacing: 0.05em; }
+.split-val.green  { color: var(--seg1); }
+.split-val.orange { color: var(--seg3); }
+.split-val.yellow { color: var(--seg2); }
+.pace-bar-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #1a1a30; }
+.pace-bar-title { color: var(--muted); font-size: 0.65rem; letter-spacing: 0.1em; margin-bottom: 0.6rem; font-family: 'DM Mono', monospace; }
+.pace-bar-wrap { display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px; }
+.pace-bar-seg { border-radius: 2px; transition: flex 0.4s ease; }
+
+/* ── COLLAPSIBLE SECTIONS ── */
+.section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 1rem; cursor: pointer; user-select: none;
+  
+}
+.section-header { border-bottom: 1px solid var(--border); }
+.section-title { font-family: 'Bebas Neue', sans-serif; font-size: 0.82rem; letter-spacing: 0.15em; color: var(--accent); }
+.section-toggle { color: var(--muted); font-size: 0.7rem; font-family: 'DM Mono', monospace; transition: transform 0.3s; }
+.section-toggle.open { transform: rotate(180deg); }
+.section-body { display: none; }
+.section-body.open { display: block; }
+
+/* ── GELS ── */
+.gel-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0.8rem 1rem; }
+.gel-chip {
+  background: #e879f912; border: 1px solid #e879f935;
+  border-radius: 20px; padding: 0.25rem 0.7rem;
+  font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--gel);
+}
+.gel-chip span { color: var(--muted); margin-left: 0.25rem; font-size: 0.65rem; }
+
+/* ── TABLE ── */
+table { width: 100%; border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 0.76rem; }
+thead tr { background: #0d0d1e; }
+thead th { padding: 0.5rem 0.8rem; color: var(--muted); font-weight: 500; letter-spacing: 0.07em; font-size: 0.64rem; text-align: left; }
+thead th:last-child, thead th:nth-child(2), thead th:nth-child(3) { text-align: right; }
+tbody tr { border-top: 1px solid #14142a; transition: background 0.12s; }
+tbody tr:hover { background: #14142a; }
+tbody tr.special { background: #0d1a0d; }
+tbody tr.gel-row  { background: #130d1e; }
+tbody td { padding: 0.5rem 0.8rem; color: var(--text); }
+tbody td:nth-child(2), tbody td:nth-child(3), tbody td:last-child { text-align: right; }
+.km-badge { display: inline-block; padding: 0.08rem 0.45rem; border-radius: 20px; font-size: 0.68rem; font-weight: 500; }
+.pace-cell { color: var(--muted); font-size: 0.68rem; }
+.time-cell { color: var(--text); font-weight: 500; }
+.cum-cell  { color: var(--accent); }
+.special-label { font-size: 0.6rem; color: var(--muted); display: block; }
+.gel-label { color: var(--gel) !important; }
+.tbl-legend { display: flex; gap: 0.8rem; flex-wrap: wrap; padding: 0.6rem 0.8rem; border-top: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 0.62rem; color: var(--muted); }
+.tbl-legend-item { display: flex; align-items: center; gap: 0.3rem; }
+.tbl-legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── MAP LEGEND ── */
+.map-legend {
+  position: absolute; bottom: 12px; left: 12px; z-index: 1000;
+  background: #10101eee; border: 1px solid #1e1e35;
+  border-radius: 10px; padding: 0.6rem 0.9rem;
+  font-family: 'DM Mono', monospace; font-size: 0.65rem; color: #6a6a8a;
+  display: flex; flex-direction: column; gap: 0.35rem;
+  backdrop-filter: blur(8px);
+}
+.ml-item { display: flex; align-items: center; gap: 0.35rem; }
+.ml-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.ml-line { width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── LEAFLET POPUP ── */
+.leaflet-popup-content-wrapper {
+  background: #13132a !important; border: 1px solid #2a2a5a !important;
+  border-radius: 10px !important; color: var(--text) !important;
+  box-shadow: 0 4px 20px #000b !important;
+}
+.leaflet-popup-tip { background: #13132a !important; }
+.leaflet-popup-content { font-family: 'DM Sans', sans-serif; font-size: 0.8rem; margin: 8px 12px !important; min-width: 150px; }
+.popup-title { font-family: 'Bebas Neue', sans-serif; font-size: 0.95rem; letter-spacing: 0.07em; }
+.popup-time  { font-family: 'DM Mono', monospace; font-size: 0.95rem; font-weight: 500; margin-top: 0.3rem; }
+.popup-sub   { color: #6a6a8a; font-size: 0.66rem; margin-top: 0.1rem; font-family: 'DM Mono', monospace; }
+.popup-note  { color: #94a3b8; font-size: 0.66rem; margin-top: 0.25rem; border-top: 1px solid #1e1e35; padding-top: 0.25rem; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .main { flex-direction: column; overflow-y: auto; height: auto; }
+  .panel-left { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); overflow-y: visible; height: auto; }
+  .panel-right { width: 100%; height: 60vw; min-height: 280px; flex-shrink: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span style="font-size:1.6rem">🏃</span>
+    <div>
+      <div class="topbar h1" style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.1em">ZÜRICH MARATÓ BARCELONA 2026</div>
+      <div class="topbar-sub" data-i18n="subtitle">Calculadora de ritmos · GPX oficial · Actualización en tiempo real</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:0.6rem">
+    <div class="topbar-time" id="topTime">—:——:——</div>
+    <div id="langSelector" style="display:flex;gap:2px;background:#1e1e35;border-radius:8px;padding:3px">
+      <button onclick="setLang('es')" id="btnEs"
+        style="font-family:'DM Mono',monospace;font-size:0.72rem;padding:0.2rem 0.55rem;border:none;border-radius:6px;cursor:pointer;transition:all 0.15s;background:#6366f1;color:#fff">ES</button>
+      <button onclick="setLang('en')" id="btnEn"
+        style="font-family:'DM Mono',monospace;font-size:0.72rem;padding:0.2rem 0.55rem;border:none;border-radius:6px;cursor:pointer;transition:all 0.15s;background:transparent;color:#4a4a6a">EN</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- PWA Install Banner -->
+<div id="installBanner" style="display:none;background:#1e1b4b;border-bottom:1px solid #4f46e5;
+  padding:0.5rem 1rem;align-items:center;justify-content:space-between;gap:1rem;flex-shrink:0">
+  <div style="display:flex;align-items:center;gap:0.6rem">
+    <span style="font-size:1.2rem">📱</span>
+    <span style="font-size:0.78rem;font-family:'DM Sans',sans-serif;color:#c7d2fe" data-i18n="install_msg">
+      Instala la app para usarla sin conexión
+    </span>
+  </div>
+  <div style="display:flex;gap:0.5rem">
+    <button onclick="installApp()" style="background:#6366f1;color:#fff;border:none;border-radius:6px;
+      padding:0.3rem 0.8rem;font-family:'DM Mono',monospace;font-size:0.72rem;cursor:pointer" data-i18n="install_btn">
+      Instalar
+    </button>
+    <button onclick="document.getElementById('installBanner').style.display='none'"
+      style="background:transparent;color:#6a6a8a;border:1px solid #2a2a5a;border-radius:6px;
+      padding:0.3rem 0.6rem;font-family:'DM Mono',monospace;font-size:0.72rem;cursor:pointer">✕</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: CALCULATOR -->
+  <div class="panel-left">
+
+    <div id="segments"></div>
+
+    <!-- RESULT -->
+    <div class="result">
+      <div class="result-label" data-i18n="estimated_time">⏱ TIEMPO ESTIMADO</div>
+      <div class="result-time" id="totalTime">—</div>
+      <div class="result-sub" id="avgPace"></div>
+      <div class="splits">
+        <div class="split"><div class="split-lbl" data-i18n="first_half">1ª MEDIA</div><div class="split-val green" id="half1">—</div></div>
+        <div class="split"><div class="split-lbl" data-i18n="second_half">2ª MEDIA</div><div class="split-val orange" id="half2">—</div></div>
+        <div class="split"><div class="split-lbl" data-i18n="difference">DIFERENCIA</div><div class="split-val yellow" id="diff">—</div></div>
+      </div>
+      <div class="pace-bar-section">
+        <div class="pace-bar-title" data-i18n="effort_dist">DISTRIBUCIÓN DE ESFUERZO</div>
+        <div class="pace-bar-wrap" id="paceBar"></div>
+      </div>
+    </div>
+
+    <!-- GELS -->
+    <div class="section" style="border-color:#3a1a4a">
+      <div class="section-header open" id="gelHeader" onclick="toggleSection('gel')" style="border-bottom-color:#3a1a4a">
+        <span class="section-title" style="color:var(--gel)">🍬 <span data-i18n="gel_plan">PLAN DE GELES</span> · <span data-i18n="every">Cada</span> <span id="gelIntervalLabel">30</span> min</span>
+        <span class="section-toggle open" id="gelToggle">▼</span>
+      </div>
+      <div class="section-body open" id="gelBody">
+        <div style="padding:0.8rem 1rem 0.2rem;display:flex;align-items:center;gap:0.8rem">
+        <span style="color:var(--muted);font-size:0.72rem;font-family:'DM Mono',monospace;white-space:nowrap" data-i18n="interval">Intervalo</span>
+        <input type="range" id="gelSlider" min="15" max="60" step="5" value="30"
+          style="--color:var(--gel);flex:1"
+          oninput="gelInterval=this.value*60;document.getElementById('gelIntervalLabel').textContent=this.value;document.getElementById('gelIntervalVal').textContent=this.value;render()"/>
+        <span style="color:var(--gel);font-family:'DM Mono',monospace;font-size:0.82rem;font-weight:500;white-space:nowrap">
+          <span id="gelIntervalVal">30</span> min
+        </span>
+      </div>
+      <div class="gel-chips" id="gelChips"></div>
+      </div>
+    </div>
+
+    <!-- SPLITS TABLE -->
+    <div class="section">
+      <div class="section-header open" id="tableHeader" onclick="toggleSection('table')">
+        <span class="section-title" data-i18n="split_times">📋 TIEMPOS DE PASO</span>
+        <span class="section-toggle open" id="tableToggle">▼</span>
+      </div>
+      <div class="section-body open" id="tableBody">
+        <table>
+          <thead><tr><th data-i18n="th_point">PUNTO</th><th data-i18n="th_pace">RITMO</th><th data-i18n="th_split">PARCIAL</th><th data-i18n="th_cum">ACUM.</th></tr></thead>
+          <tbody id="splitsRows"></tbody>
+        </table>
+        <div class="tbl-legend">
+          <div class="tbl-legend-item"><div class="tbl-legend-dot" style="background:#34d399"></div>0–20 · 4'40"</div>
+          <div class="tbl-legend-item"><div class="tbl-legend-dot" style="background:#fbbf24"></div>21–30 · 4'35"</div>
+          <div class="tbl-legend-item"><div class="tbl-legend-dot" style="background:#fb923c"></div>31–42 · 4'30"</div>
+          <div class="tbl-legend-item"><div class="tbl-legend-dot" style="background:#e879f9"></div><span data-i18n="gel_lbl">Gel</span> 🍬</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="color:#2a2a45;font-size:0.65rem;text-align:center;padding:0.5rem 0;font-family:'DM Mono',monospace">
+      <span data-i18n="warning">⚠ Controla la primera mitad — ahí está el secreto</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: MAP -->
+  <div class="panel-right">
+    <div id="map"></div>
+    <div class="map-legend">
+      <div class="ml-item"><div class="ml-line" style="background:#6366f1"></div><span data-i18n="gpx_route">Recorrido GPX oficial</span></div>
+      <div class="ml-item"><div class="ml-dot" style="background:#22c55e"></div><span data-i18n="start">Salida</span></div>
+      <div class="ml-item"><div class="ml-dot" style="background:#34d399"></div>Parcial 4'40"</div>
+      <div class="ml-item"><div class="ml-dot" style="background:#fbbf24"></div>Parcial 4'35" / ½</div>
+      <div class="ml-item"><div class="ml-dot" style="background:#fb923c"></div>Parcial 4'30"</div>
+      <div class="ml-item"><div class="ml-dot" style="background:#e879f9"></div>Gel 🍬</div>
+      <div class="ml-item"><div class="ml-dot" style="background:#f43f5e"></div><span data-i18n="finish">Meta</span> 🏁</div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+
+// ── PWA INSTALL BANNER ────────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  const banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+  deferredPrompt = null;
+});
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// I18N
+// ══════════════════════════════════════════════════════════════════════════════
+const TRANSLATIONS = {
+  es: {
+    subtitle:       'Calculadora de ritmos · GPX oficial · Actualización en tiempo real',
+    estimated_time: '⏱ TIEMPO ESTIMADO',
+    first_half:     '1ª MEDIA',
+    second_half:    '2ª MEDIA',
+    difference:     'DIFERENCIA',
+    effort_dist:    'DISTRIBUCIÓN DE ESFUERZO',
+    gel_plan:       'PLAN DE GELES',
+    every:          'Cada',
+    interval:       'Intervalo',
+    split_times:    '📋 TIEMPOS DE PASO',
+    th_point:       'PUNTO',
+    th_pace:        'RITMO',
+    th_split:       'PARCIAL',
+    th_cum:         'ACUM.',
+    gel_lbl:        'Gel',
+    gpx_route:      'Recorrido GPX oficial',
+    start:          'Salida',
+    finish:         'Meta',
+    warning:        '⚠ Controla la primera mitad — ahí está el secreto',
+    // segment notes
+    seg_notes:      ['Salida prudente · ¡No te pases!','Inicio progresión controlada','Progresión final · A por ello'],
+    // avg pace string
+    avg_pace_lbl:   (avg) => `42.195 km · Ritmo medio ${avg}`,
+    // map popups
+    pop_start_title:'SALIDA · KM 0',
+    pop_start_time: '0:00:00 · 8:30h',
+    pop_start_sub:  'Passeig de Gràcia / Gran Via',
+    pop_start_note: `Sal a 4'40" · ¡Sin pasarse!`,
+    pop_finish_title:'META · KM 42.2',
+    pop_finish_sub:  'Arc de Triomf · Passeig Lluís Companys',
+    pop_finish_note: '¡Lo conseguiste! 🎉',
+    pop_half:       '⭐ MEDIA MARATÓN · KM 21.1',
+    pop_half_note:  "¡Empieza la progresión!",
+    pop_pace:       'Ritmo',
+    pop_gel_sub:    'Tómalo ahora, no esperes',
+    pop_gel_note:   '¡Mantén el ritmo!',
+  },
+  en: {
+    subtitle:       'Pace calculator · Official GPX · Real-time updates',
+    estimated_time: '⏱ ESTIMATED TIME',
+    first_half:     '1st HALF',
+    second_half:    '2nd HALF',
+    difference:     'DIFFERENCE',
+    effort_dist:    'EFFORT DISTRIBUTION',
+    gel_plan:       'GEL PLAN',
+    every:          'Every',
+    interval:       'Interval',
+    split_times:    '📋 SPLIT TIMES',
+    th_point:       'POINT',
+    th_pace:        'PACE',
+    th_split:       'SPLIT',
+    th_cum:         'CUM.',
+    gel_lbl:        'Gel',
+    gpx_route:      'Official GPX route',
+    start:          'Start',
+    finish:         'Finish',
+    install_msg:    'Install the app to use it offline',
+    install_btn:    'Install',
+    warning:        `⚠ Control the first half — that's the secret`,
+    seg_notes:      [`Easy start · Don't go too fast!`,`Begin controlled progression`,`Final push · Go for it`],
+    avg_pace_lbl:   (avg) => `42.195 km · Avg pace ${avg}`,
+    pop_start_title:'START · KM 0',
+    pop_start_time: '0:00:00 · 8:30h',
+    pop_start_sub:  'Passeig de Gràcia / Gran Via',
+    pop_start_note: `Run at 4'40" · Don't go faster!`,
+    pop_finish_title:'FINISH · KM 42.2',
+    pop_finish_sub:  'Arc de Triomf · Passeig Lluís Companys',
+    pop_finish_note: 'You made it! 🎉',
+    pop_half:       '⭐ HALF MARATHON · KM 21.1',
+    pop_half_note:  'Start the progression!',
+    pop_pace:       'Pace',
+    pop_gel_sub:    `Take it now, don't wait`,
+    pop_gel_note:   'Keep the pace!',
+  }
+};
+
+let currentLang = 'es';
+
+function t(key) { return TRANSLATIONS[currentLang][key] || key; }
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = TRANSLATIONS[currentLang][key];
+    if (val && typeof val === 'string') el.textContent = val;
+  });
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  // Update buttons
+  document.getElementById('btnEs').style.background = lang==='es' ? '#6366f1' : 'transparent';
+  document.getElementById('btnEs').style.color      = lang==='es' ? '#fff'    : '#4a4a6a';
+  document.getElementById('btnEn').style.background = lang==='en' ? '#6366f1' : 'transparent';
+  document.getElementById('btnEn').style.color      = lang==='en' ? '#fff'    : '#4a4a6a';
+  applyTranslations();
+  render(); // re-render dynamic content with new language
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════════════════
+const SEGMENTS = [
+  { label:"KM 0 – 20",    from:0,  to:20,     pace:280, color:"#34d399", get note(){ return TRANSLATIONS[currentLang].seg_notes[0]; } },
+  { label:"KM 21 – 30",   from:20, to:30,     pace:275, color:"#fbbf24", get note(){ return TRANSLATIONS[currentLang].seg_notes[1]; } },
+  { label:"KM 31 – 42.2", from:30, to:42.195, pace:270, color:"#fb923c", get note(){ return TRANSLATIONS[currentLang].seg_notes[2]; } },
+];
+const paces = SEGMENTS.map(s => s.pace);
+let gelInterval = 1800; // seconds, default 30 min
+
+// Real GPX route (official 2026)
+const ROUTE = [[41.388870000000004,2.16922],[41.389520000000005,2.1687000000000003],[41.39033287334603,2.169559956765749],[41.39270431270172,2.172719927914363],[41.39406,2.17443],[41.394420000000004,2.1756900000000003],[41.394830000000006,2.17619],[41.39573,2.1766900000000002],[41.39795601367438,2.179557962313939],[41.40019000720406,2.179720022032651],[41.4018,2.17787],[41.40045216395535,2.1759848983173185],[41.39799642157681,2.1726948814337197],[41.39554058549196,2.1694051131668193],[41.393084655715974,2.166115593485837],[41.39062863226403,2.1628263223599906],[41.38817251515127,2.1595372997585023],[41.38571630439291,2.1562485256505943],[41.38326,2.15296],[41.383595000971546,2.1521100022934347],[41.38525595691845,2.153443638902311],[41.38776779800174,2.156791110676658],[41.39027954206684,2.1601388411046867],[41.39279118909765,2.1634868302192496],[41.39530273907813,2.166835078053206],[41.3978141919922,2.1701835846394135],[41.40032554782376,2.1735323500107344],[41.40283680655674,2.176881374200031],[41.40534796817506,2.180230657240169],[41.407859032662614,2.1835801991640147],[41.41037,2.1869300000000003],[41.412780000000005,2.1901200000000003],[41.41484250673557,2.1928099817974385],[41.41619500285749,2.19247500805611],[41.41769333778628,2.1904033455371312],[41.41962,2.19015],[41.42172333338652,2.191190000604641],[41.422540000000005,2.1900600000000003],[41.422700000000006,2.1871500000000004],[41.420054999978746,2.1870399975555004],[41.41654333332614,2.1869816667778723],[41.413076666630445,2.186988333444586],[41.41134467847491,2.1859144172990423],[41.4088033304709,2.1825322518797874],[41.40626188343345,2.17915035105032],[41.40372033737919,2.175768714776593],[41.40117869232469,2.1723873430245635],[41.39863694828655,2.1690062357601887],[41.39609510528139,2.1656253929494294],[41.39355316332578,2.162244814558248],[41.3910111224363,2.158864500552608],[41.38846898262955,2.1554844508984776],[41.3859267439221,2.152104665561825],[41.38392,2.14943],[41.38155502398201,2.152615063224894],[41.37984,2.15513],[41.381465055297355,2.157669852642098],[41.38380505529359,2.1607898526274782],[41.38598000121777,2.1636799963273097],[41.387750001977366,2.166049994425794],[41.388270000000006,2.1672800000000003],[41.38740000000001,2.16819],[41.386,2.1648],[41.384694999954284,2.16389999939409],[41.38295335731896,2.162157713621874],[41.38044672663003,2.158828728509413],[41.37794,2.1555],[41.37764000000001,2.15559],[41.37765,2.1573],[41.379120009391556,2.1593499749616263],[41.379780003912956,2.161576677346873],[41.37848,2.1630000000000003],[41.37673250730744,2.160732479723489],[41.375890000000005,2.1596300000000004],[41.37505,2.1588100000000003],[41.37503434467726,2.1634142862245955],[41.37502289252065,2.168082857447626],[41.37488602403259,2.171984005529066],[41.37465,2.1753500000000003],[41.374460000000006,2.1764200000000002],[41.375530000000005,2.17743],[41.375980000000006,2.1775100000000003],[41.37633,2.1781],[41.377516668150285,2.1791566597993475],[41.378930000000004,2.1803700000000004],[41.38018500126506,2.181309994171342],[41.38085,2.18203],[41.381310000000006,2.18224],[41.38195500060321,2.1827649970548175],[41.38243000000001,2.1833],[41.383030000000005,2.1838],[41.38548,2.1858400000000002],[41.38630500732846,2.1849500202131114],[41.38808,2.1827300000000003],[41.38930573060476,2.1842028135427816],[41.39168859860415,2.187374213012281],[41.392900000000004,2.18927],[41.39103004113912,2.1917488602701014],[41.38863001914384,2.194933801528151],[41.38777,2.1958],[41.38745,2.19612],[41.387660000000004,2.1966],[41.38853,2.19807],[41.389160000000004,2.19943],[41.39031000000001,2.2002900000000003],[41.391360000000006,2.20201],[41.39237000000001,2.2041000000000004],[41.393440000000005,2.20492],[41.395140000000005,2.20642],[41.396350000000005,2.2080300000000004],[41.39764,2.20868],[41.3986,2.20934],[41.400110000000005,2.21075],[41.401210000000006,2.2124900000000003],[41.402590000000004,2.21444],[41.40446,2.2169000000000003],[41.406240000000004,2.21922],[41.40768500262686,2.2173600069124184],[41.41022500473607,2.2183874817963973],[41.411210000000004,2.21904],[41.41136,2.21885],[41.410408017459126,2.2148339853038213],[41.40933885823331,2.210506887739322],[41.408230520484395,2.2060762036609662],[41.40712201277348,2.2016456707585457],[41.406013335113045,2.197215289044184],[41.40490448751549,2.19278505853],[41.40428,2.19069],[41.40502,2.19377],[41.40576,2.1973100000000003],[41.406832865812376,2.2015862400740946],[41.40790557329563,2.205862621361332],[41.408820000000006,2.20948],[41.409465011467304,2.2123499897663987],[41.409690000000005,2.2135100000000003],[41.40843507709864,2.2118547929372365],[41.40602516520326,2.2086645563130443],[41.40361516519604,2.2054745563331593],[41.40120507709096,2.2022847929686153],[41.400600000000004,2.19966],[41.40148000000001,2.19823],[41.399370000000005,2.19543],[41.39774000115187,2.19323999631904],[41.39609500162447,2.192165004322424],[41.39440500152319,2.194400003926197],[41.392537505308646,2.1969100141174462],[41.390640000000005,2.1994900000000004],[41.388715008544686,2.1969399770459335],[41.388160000000006,2.19578],[41.39020001740171,2.193061475412906],[41.39268002900158,2.1897872209333067],[41.39414,2.18771],[41.394580000000005,2.1868000000000003],[41.39334601720653,2.1849319562684992],[41.391600000000004,2.18228],[41.39383,2.17919],[41.39251401770224,2.1772779520982652],[41.390440000000005,2.17478],[41.39002000000001,2.17536],[41.3911500136978,2.1786149831258537],[41.39146,2.18006],[41.39058,2.18126],[41.39058,2.18126]];
+
+// Cumulative distances along GPX
+const CUM = [0];
+function haversine(a, b) {
+  const R=6371000, toRad=x=>x*Math.PI/180;
+  const dLat=toRad(b[0]-a[0]), dLon=toRad(b[1]-a[1]);
+  const s=Math.sin(dLat/2)**2+Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLon/2)**2;
+  return R*2*Math.asin(Math.sqrt(s));
+}
+for (let i=1;i<ROUTE.length;i++) CUM.push(CUM[i-1]+haversine(ROUTE[i-1],ROUTE[i]));
+
+function pointAtDist(d) {
+  for (let i=1;i<CUM.length;i++) {
+    if (CUM[i]>=d) {
+      const f=(d-CUM[i-1])/(CUM[i]-CUM[i-1]);
+      return [ROUTE[i-1][0]+f*(ROUTE[i][0]-ROUTE[i-1][0]), ROUTE[i-1][1]+f*(ROUTE[i][1]-ROUTE[i-1][1])];
+    }
+  }
+  return ROUTE[ROUTE.length-1];
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALC HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function fmtTime(s) {
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=Math.round(s%60);
+  return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+}
+function fmtPace(s) {
+  const m=Math.floor(s/60),ss=Math.round(s%60);
+  return `${m}'${String(ss).padStart(2,'0')}"/km`;
+}
+function getPaceInfo(km) {
+  for (let i=0;i<SEGMENTS.length;i++) if (km<=SEGMENTS[i].to) return {pace:paces[i],color:SEGMENTS[i].color};
+  return {pace:paces[paces.length-1],color:SEGMENTS[SEGMENTS.length-1].color};
+}
+function timeAtKm(km) {
+  let s=0,c=0;
+  for (const seg of SEGMENTS) {
+    const e=Math.min(seg.to,km);
+    if (c<e) { s+=(e-c)*paces[SEGMENTS.indexOf(seg)]; c=e; }
+    if (c>=km) break;
+  }
+  return s;
+}
+function kmAtTime(t) {
+  let e=0;
+  for (let i=0;i<SEGMENTS.length;i++) {
+    const seg=SEGMENTS[i], dt=(seg.to-seg.from)*paces[i];
+    if (e+dt>=t) return seg.from+(t-e)/paces[i];
+    e+=dt;
+  }
+  return 42.195;
+}
+function computeGels() {
+  const total=timeAtKm(42.195); const gels=[]; let n=1;
+  while (true) { const t=n*gelInterval; if (t>=total) break; gels.push({n,t,km:kmAtTime(t)}); n++; }
+  return gels;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MAP
+// ══════════════════════════════════════════════════════════════════════════════
+const map = L.map('map',{zoomControl:true}).setView([41.393,2.185],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+L.polyline(ROUTE,{color:'#6366f1',weight:4,opacity:0.9,lineJoin:'round'}).addTo(map);
+map.fitBounds(L.latLngBounds(ROUTE).pad(0.06));
+
+function makeIcon(emoji,bg,size) {
+  size=size||30;
+  return L.divIcon({
+    html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2px solid rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.46)}px;box-shadow:0 2px 10px rgba(0,0,0,.7)">${emoji}</div>`,
+    className:'',iconSize:[size,size],iconAnchor:[size/2,size/2],popupAnchor:[0,-size/2]
+  });
+}
+function mkPopup(title,time,sub,note,color) {
+  return `<div class="popup-title" style="color:${color}">${title}</div>
+    <div class="popup-time" style="color:${color}">${time}</div>
+    <div class="popup-sub">${sub}</div>
+    ${note?`<div class="popup-note">${note}</div>`:''}`;
+}
+
+
+
+// Static + dynamic marker layers
+const staticLayer  = L.layerGroup().addTo(map);
+const dynamicLayer = L.layerGroup().addTo(map);
+const KM_CHECKPOINTS = [5,10,15,20,21.0975,25,30,35,40];
+
+function rebuildStaticMarkers() {
+  staticLayer.clearLayers();
+  L.marker(ROUTE[0], {icon: makeIcon('🚦','#22c55e44',36)})
+    .bindPopup(mkPopup(t('pop_start_title'), t('pop_start_time'), t('pop_start_sub'), t('pop_start_note'), '#22c55e'))
+    .addTo(staticLayer);
+  L.marker(ROUTE[ROUTE.length-1], {icon: makeIcon('🏁','#f43f5e44',38)})
+    .bindPopup(mkPopup(t('pop_finish_title'), '—', t('pop_finish_sub'), t('pop_finish_note'), '#f43f5e'))
+    .addTo(staticLayer);
+}
+
+function updateMap() {
+  dynamicLayer.clearLayers();
+  rebuildStaticMarkers();
+  const gels = computeGels();
+
+  // Parciales
+  KM_CHECKPOINTS.forEach(km => {
+    const t_ = timeAtKm(km);
+    const {pace,color} = getPaceInfo(km<=20?km:km-0.01);
+    const pm=Math.floor(pace/60), ps=pace%60;
+    const isHalf = Math.abs(km-21.0975)<0.01;
+    const pt = pointAtDist(km*1000);
+    const emoji = isHalf?'⭐':'📍';
+    const size  = isHalf?34:27;
+    const label = isHalf?`⭐ MEDIA · KM 21.1`:`KM ${km}`;
+    const note  = isHalf ? t('pop_half_note') : null;
+    L.marker(pt,{icon:makeIcon(emoji,color+'33',size)})
+      .bindPopup(mkPopup(label, fmtTime(t_), `${t('pop_pace')}: ${pm}'${String(ps).padStart(2,'0')}"`, note, color))
+      .addTo(dynamicLayer);
+  });
+
+  // Geles
+  gels.forEach(g => {
+    const pt = pointAtDist(g.km*1000);
+    L.marker(pt,{icon:makeIcon('🍬','#e879f933',33)})
+      .bindPopup(mkPopup(`GEL #${g.n} · KM ${g.km.toFixed(1)}`, fmtTime(g.t), t('pop_gel_sub'), t('pop_gel_note'),'#e879f9'))
+      .addTo(dynamicLayer);
+  });
+
+  // Update meta popup time
+  const totalTime = timeAtKm(42.195);
+  // (meta marker is static, update topbar instead)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI TOGGLES
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleSection(id) {
+  const body = document.getElementById(id + 'Body');
+  const tog  = document.getElementById(id + 'Toggle');
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  tog.classList.toggle('open',  !isOpen);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════════════════
+function renderSplits() {
+  const tbody=document.getElementById('splitsRows');
+  tbody.innerHTML='';
+  const gels=computeGels();
+  const gelByKm={};
+  gels.forEach(g=>{ gelByKm[parseFloat(g.km.toFixed(2))]=g.n; });
+
+  const base=[5,10,15,20,21.0975,25,30,35,40,42.195];
+  const gelKeys=gels.map(g=>parseFloat(g.km.toFixed(2)));
+  const all=[...new Set([...base,...gelKeys])].sort((a,b)=>a-b);
+
+  const chips=document.getElementById('gelChips');
+  chips.innerHTML='';
+  gels.forEach(g=>{
+    const c=document.createElement('div');
+    c.className='gel-chip';
+    c.innerHTML=`GEL #${g.n}<span>km ${g.km.toFixed(1)} · ${fmtTime(g.t)}</span>`;
+    chips.appendChild(c);
+  });
+
+  let cum=0, prev=0;
+  all.forEach(km=>{
+    let seg=0,cur=prev;
+    while(cur<km){
+      const nb=SEGMENTS.find(s=>s.to>cur)?.to??km;
+      const end=Math.min(nb,km);
+      const {pace}=getPaceInfo((cur+end)/2);
+      seg+=(end-cur)*pace; cur=end;
+    }
+    cum+=seg;
+    const isHalf=km===21.0975, isFin=km===42.195;
+    const kmR=parseFloat(km.toFixed(2)), gelNum=gelByKm[kmR], isGel=gelNum!==undefined;
+    const {pace,color}=getPaceInfo(km>=42?41:Math.max(km-0.01,0.01));
+    const pm=Math.floor(pace/60),ps=pace%60;
+    const tr=document.createElement('tr');
+    if(isHalf||isFin) tr.classList.add('special');
+    if(isGel) tr.classList.add('gel-row');
+    let lbl=km%1===0?`KM ${km}`:`KM ${km.toFixed(1)}`;
+    if(isHalf) lbl='KM 21.1';
+    if(isFin)  lbl='KM 42.2';
+    let sub='';
+    if(isHalf) sub+=`<span class="special-label">${currentLang==='es'?'½ MARATÓN':'½ MARATHON'}</span>`;
+    if(isFin)  sub+=`<span class="special-label">🏁 ${currentLang==='es'?'META':'FINISH'}</span>`;
+    if(isGel)  sub+=`<span class="special-label gel-label">🍬 GEL #${gelNum}</span>`;
+    const bg=isGel?'#e879f922':`${color}22`, col=isGel?'#e879f9':color, brd=isGel?'#e879f944':`${color}44`;
+    tr.innerHTML=`<td><span class="km-badge" style="background:${bg};color:${col};border:1px solid ${brd}">${lbl}</span>${sub}</td>
+      <td class="pace-cell">${pm}'${String(ps).padStart(2,'0')}"</td>
+      <td class="time-cell">${fmtTime(seg)}</td>
+      <td class="cum-cell">${fmtTime(cum)}</td>`;
+    tbody.appendChild(tr);
+    prev=km;
+  });
+}
+
+function render() {
+  const container=document.getElementById('segments');
+  container.innerHTML='';
+  SEGMENTS.forEach((seg,i)=>{
+    const dist=seg.to-seg.from, ss=dist*paces[i];
+    const pm=Math.floor(paces[i]/60), ps=paces[i]%60;
+    const div=document.createElement('div');
+    div.className='segment'; div.style.setProperty('--color',seg.color);
+    div.innerHTML=`
+      <div class="seg-top">
+        <div><div class="seg-label">${seg.label}</div><div class="seg-note">${seg.note}</div></div>
+        <div class="seg-time"><div class="time">${fmtTime(ss)}</div><div class="dist">${dist.toFixed(3)} km</div></div>
+      </div>
+      <div class="pace-row">
+        <span class="pace-label">Ritmo</span>
+        <span class="pace-value">${pm}'${String(ps).padStart(2,'0')}" /km</span>
+      </div>
+      <input type="range" min="240" max="360" step="5" value="${paces[i]}" id="range${i}"/>
+      <div class="range-labels"><span>4'00"</span><span>5'00"</span><span>6'00"</span></div>`;
+    container.appendChild(div);
+    document.getElementById(`range${i}`).addEventListener('input',e=>{
+      paces[i]=Number(e.target.value); render();
+    });
+  });
+
+  const total=SEGMENTS.reduce((a,s,i)=>a+(s.to-s.from)*paces[i],0);
+  const h1=21.0975*paces[0], h2=total-h1, dif=Math.abs(h2-h1);
+  document.getElementById('totalTime').textContent=fmtTime(total);
+  document.getElementById('topTime').textContent=fmtTime(total);
+  document.getElementById('avgPace').textContent=t('avg_pace_lbl')(fmtPace(total/42.195));
+  document.getElementById('half1').textContent=fmtTime(h1);
+  document.getElementById('half2').textContent=fmtTime(h2);
+  document.getElementById('diff').textContent=`-${fmtTime(dif)}`;
+
+  const bar=document.getElementById('paceBar');
+  bar.innerHTML='';
+  SEGMENTS.forEach((seg,i)=>{
+    const b=document.createElement('div');
+    b.className='pace-bar-seg';
+    b.style.flex=(seg.to-seg.from)/42.195*100;
+    b.style.background=seg.color;
+    b.style.opacity=0.7+i*0.1;
+    bar.appendChild(b);
+  });
+
+  renderSplits();
+  updateMap();
+  applyTranslations();
+}
+
+render();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(r => console.log('SW registered:', r.scope))
+        .catch(e => console.warn('SW registration failed:', e));
+    });
+  }
+</script>
+</body>
+</html>
